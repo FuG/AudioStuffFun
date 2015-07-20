@@ -30,6 +30,7 @@ public class AppletMain extends Applet implements Runnable, MouseListener, Mouse
     public void init() {
         setSize(1400, 800);
         setBackground(Color.BLACK);
+        setForeground(Color.WHITE);
 
         backBuffer = createImage(getWidth(), getHeight());
         backGraphics = backBuffer.getGraphics();
@@ -94,13 +95,10 @@ public class AppletMain extends Applet implements Runnable, MouseListener, Mouse
     int mxStartDelta = 0; int myStartDelta = 0;
     boolean isMouseDraggingVolume = false;
 
+    // repaint() schedules the AWT thread to call update()
     public void update(Graphics g) {
         g.drawImage(backBuffer, 0, 0, this);
         getToolkit().sync();
-    }
-
-    public void paint(Graphics g) {
-        update(g);
     }
 
     @Override
