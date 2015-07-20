@@ -3,10 +3,10 @@ package com.gfu.app;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
+import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.TargetDataLine;
-import java.util.List;
 import java.util.Vector;
 
 public class Player implements Runnable {
@@ -14,6 +14,10 @@ public class Player implements Runnable {
     public byte[] rawBuffer; // use alternating buffers
 
     AudioFormat audioFormat;
+    SourceDataLine sourceLine;
+    TargetDataLine targetLine;
+
+    Object ctrlLock = new Object();
 
     public Player(AudioFormat audioFormat) {
         this.audioFormat = audioFormat;
@@ -34,24 +38,26 @@ public class Player implements Runnable {
     }
 
     private synchronized void playFromBuffer() throws LineUnavailableException {
-        SourceDataLine line = getSourceLine();
+        sourceLine = getSourceLine();
+        targetLine = getTargetLine();
 
-        if (line != null) {
-            line.start();
+        if (sourceLine != null) {
+            sourceLine.start();
 
-            line.write(rawBuffer, 0, rawBuffer.length);
+            sourceLine.write(rawBuffer, 0, rawBuffer.length);
 
-            line.drain();
-            line.stop();
-            line.close();
+            sourceLine.drain();
+            sourceLine.stop();
+            sourceLine.close();
         }
     }
 
     private synchronized void playFromQueue() throws LineUnavailableException {
-        SourceDataLine line = getSourceLine();
+        sourceLine = getSourceLine();
+        targetLine = getTargetLine();
 
-        if (line != null) {
-            line.start();
+        if (sourceLine != null) {
+            sourceLine.start();
 
             while (true) {
                 if (rawQueue.size() == 0) {
@@ -63,15 +69,9 @@ public class Player implements Runnable {
                 }
                 byte[] buffer = rawQueue.remove(0);
 
-                line.write(buffer, 0, buffer.length);
+                sourceLine.write(buffer, 0, buffer.length);
             }
         }
-    }
-
-    public synchronized void enqueue(byte[] buffer) {
-        rawQueue.add(buffer);
-        System.out.println("Enqueued");
-        notify();
     }
 
     private SourceDataLine getSourceLine() throws LineUnavailableException {
@@ -80,5 +80,25 @@ public class Player implements Runnable {
         line = (SourceDataLine) AudioSystem.getLine(info);
         line.open(audioFormat);
         return line;
+    }
+
+    private TargetDataLine getTargetLine() throws LineUnavailableException {
+        TargetDataLine line;
+        DataLine.Info info = new DataLine.Info(TargetDataLine.class, audioFormat); // format is an AudioFormat object
+        if (!AudioSystem.isLineSupported(info)) throw new UnsupportedOperationException();
+        line = (TargetDataLine) AudioSystem.getLine(info);
+        line.open(audioFormat);
+        return line;
+    }
+
+    public synchronized void enqueue(byte[] buffer) {
+        rawQueue.add(buffer);
+        notify();
+    }
+
+    public void setMasterGain(float volume) {
+        float db=(float)(Math.log(volume) / Math.log(10.0) * 20.0);
+        FloatControl gainControl = (FloatControl) sourceLine.getControl(FloatControl.Type.MASTER_GAIN);
+        gainControl.setValue(db);
     }
 }

@@ -24,6 +24,26 @@ public class Mixer implements Runnable {
 
     @Override
     public void run() {
+        playDefault();
+//        experimentalReverb();
+    }
+
+    private void playDefault() {
+        int bufferSize = 44;
+        double[] playBuffer = new double[bufferSize];
+
+        for (int i = 0; i < normalStereoBuffer.length; i++) {
+            if (i % bufferSize == 0) {
+                byte[] finalBuffer = Utility.doublesToBytes(playBuffer, 2, true);
+                pauseCheck();
+                player.enqueue(finalBuffer);
+            }
+            playBuffer[i % bufferSize] = normalStereoBuffer[i];
+        }
+        System.out.println("Data: Fully Loaded!");
+    }
+
+    private void experimentalReverb() {
         int bufferSize = 4410;
 //        int speakerDistanceOffset = 0;
         int speakerDistanceOffset = (int) (648 * 1.5);
@@ -38,23 +58,27 @@ public class Mixer implements Runnable {
                 double[] rightMix = mix(rightMixInput, rightOverflow, speakerDistanceOffset, volumeFactor);
                 double[] stereoMix = mixToStereo(leftMix, rightMix);
                 byte[] stereoMixBytes = Utility.doublesToBytes(stereoMix, 2, true);
-                if (paused) {
-                    try {
-                        wait();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
+                pauseCheck();
                 player.enqueue(stereoMixBytes);
                 leftMixInput = new double[bufferSize];
                 rightMixInput = new double[bufferSize];
-                System.out.println("Enqueued: " + i);
+//                System.out.println("Enqueued: " + i);
             }
 
             leftMixInput[i % bufferSize] = leftBuffer[i];
             rightMixInput[i % bufferSize] = rightBuffer[i];
         }
         System.out.println("Data: Fully Loaded!");
+    }
+
+    public synchronized void pauseCheck() {
+        if (paused) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public synchronized void togglePause() {

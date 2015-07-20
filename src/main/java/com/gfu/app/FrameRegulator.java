@@ -1,6 +1,6 @@
 package com.gfu.app;
 
-public class FrameRegulator {
+public class FrameRegulator implements Runnable {
 
     private int desiredFPS;
     private double millisBetweenFrames;
@@ -29,6 +29,11 @@ public class FrameRegulator {
         if (timeDelta > 0) {
             Thread.sleep(timeDelta);
         }
+    }
+
+    @Override
+    public void run() {
+
     }
 
 //    public boolean hasNextUpdate() {

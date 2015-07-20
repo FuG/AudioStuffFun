@@ -31,6 +31,19 @@ public class Main {
 
     // offset = 648 @ 5m
     public static void sandboxTest() {
+        double ratio = 0.999;
+        int steps = 1000000;
+        double sum = 0;
+        double runningSum = 1;
+
+        for (int i = 0; i < steps; i++) {
+            runningSum *= ratio;
+            sum += runningSum;
+        }
+        System.out.println("Sum: " + sum);
+
+        if (true) System.exit(1);
+
         try {
             AudioFile audioFile = new AudioFile(filepath);
 

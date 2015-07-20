@@ -3,6 +3,7 @@ package com.gfu.app;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.applet.Applet;
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -27,7 +28,8 @@ public class AppletMain extends Applet implements Runnable, MouseListener, Mouse
     private String filepath = "nara_16.wav";
 
     public void init() {
-        setSize(1280, 720);
+        setSize(1400, 800);
+        setBackground(Color.BLACK);
 
         backBuffer = createImage(getWidth(), getHeight());
         backGraphics = backBuffer.getGraphics();
@@ -51,6 +53,9 @@ public class AppletMain extends Applet implements Runnable, MouseListener, Mouse
         } catch (UnsupportedAudioFileException e) {
             e.printStackTrace();
         }
+
+        addMouseListener(this);
+        addMouseMotionListener( this );
     }
 
     public void start() {
@@ -66,6 +71,7 @@ public class AppletMain extends Applet implements Runnable, MouseListener, Mouse
             mixerThread = new Thread(mixer);
             mixerThread.start();
         }
+        frameReg.start();
     }
 
     private void initRenderHints(Graphics g) {
@@ -82,6 +88,12 @@ public class AppletMain extends Applet implements Runnable, MouseListener, Mouse
         g2.setRenderingHints(renderingHintsMap);
     }
 
+    int yLineMin = 199, yLineMax = 599;
+    int widthVol = 20, heightVol = 40;
+    int xVol = 0, yVol = 0;
+    int mxStartDelta = 0; int myStartDelta = 0;
+    boolean isMouseDraggingVolume = false;
+
     public void update(Graphics g) {
         g.drawImage(backBuffer, 0, 0, this);
         getToolkit().sync();
@@ -94,17 +106,38 @@ public class AppletMain extends Applet implements Runnable, MouseListener, Mouse
     @Override
     public void run() {
         frameReg.start();
+        xVol = getWidth() / 2 - widthVol / 2;
+        yVol = yLineMin;
 
+        setupBackBuffer();
+        updateVolumeSlider();
         while (true) {
             try {
-                backGraphics.setColor(Color.BLACK);
-                backGraphics.fillRect(0, 0, getWidth(), getHeight());
                 frameReg.waitForNextFrame();
                 repaint();
-            } catch (InterruptedException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
+    }
+
+    private void setupBackBuffer() {
+        // wipe the image
+        backGraphics.setColor(Color.BLACK);
+        backGraphics.fillRect(0, 0, getWidth(), getHeight());
+
+        // volume text
+        backGraphics.setColor(Color.WHITE);
+        backGraphics.setFont(new Font("Custom", Font.BOLD, 20));
+        backGraphics.drawString("Volume", 667, 180);
+
+        // volume line
+        backGraphics.setColor(Color.WHITE);
+        backGraphics.drawLine(getWidth() / 2, yLineMin, getWidth() / 2, yLineMax);
+    }
+
+    private void updateVolumeSlider() {
+        backGraphics.fillRect(xVol, yVol, widthVol, heightVol);
     }
 
     @Override
@@ -114,12 +147,23 @@ public class AppletMain extends Applet implements Runnable, MouseListener, Mouse
 
     @Override
     public void mousePressed(MouseEvent e) {
+        int mx = e.getX();
+        int my = e.getY();
 
+        if (mx >= xVol && mx < xVol + widthVol) {
+            if (my >= yVol && my < yVol + heightVol) {
+                isMouseDraggingVolume = true;
+                myStartDelta = my - yVol;
+            }
+        }
+        e.consume();
     }
 
     @Override
     public void mouseReleased(MouseEvent e) {
-
+        isMouseDraggingVolume = false;
+        myStartDelta = 0;
+        e.consume();
     }
 
     @Override
@@ -134,7 +178,27 @@ public class AppletMain extends Applet implements Runnable, MouseListener, Mouse
 
     @Override
     public void mouseDragged(MouseEvent e) {
+        if (isMouseDraggingVolume) {
+            int mx = e.getX();
+            int my = e.getY();
+            int yVolCandidate = my - myStartDelta; // safer to use candidate, otherwise graphics may get wonky
 
+            // if outside of slider bounds, set to min/max
+            if (my <= yLineMin - myStartDelta) yVolCandidate = yLineMin;
+            else if (my >= yLineMax - myStartDelta) yVolCandidate = yLineMax - heightVol;
+
+            if (yVolCandidate >= yLineMin && yVolCandidate <= yLineMax - heightVol) {
+                yVol = yVolCandidate;
+
+                float gain = 1.0f - (float) (yVol - yLineMin) / ((yLineMax - heightVol) - yLineMin);
+                player.setMasterGain(gain);
+
+                setupBackBuffer();
+                updateVolumeSlider();
+                repaint();
+            }
+        }
+        e.consume();
     }
 
     @Override
